@@ -1,4 +1,5 @@
 import socket
+import time
 
 # Documentation to refer to: https://docs.python.org/3/library/socket.html#socket-families
 # Note that the documentation mentioned above is quite detailed and as such, I'll be using Gemini as an external assistant to skim past the content
@@ -11,3 +12,11 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # 0.0.0.0 is a wildcard for "Accept all incoming traffic"; you could also use 127.0.0.1 for your own machine
 # <socket>.bind() takes one argument so pass the IP and the port in one tuple
 s.bind(('0.0.0.0', 8080))
+
+# Now that we have bound a port to the socket, let's allow the socket to listen to incoming traffic using the listen() method
+# listen() flips a switch on the Linux OS kernel to passively listen to requests coming on port 8080
+s.listen()
+
+# If we end the program here, the kernel listens for only a fraction of a second, so we make the script to wait (sleep) for a while so that we can verify whether the kernel is actually listening on 8080
+# We can check this using 'ss -tlnp | grep 8080'
+time.sleep(10)
