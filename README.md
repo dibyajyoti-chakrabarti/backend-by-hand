@@ -6,7 +6,7 @@ to an EC2 VM behind nginx and systemd.
 
 | # | Component | What it teaches | Status |
 |---|-----------|-----------------|--------|
-| 0 | Raw HTTP server | What a request and response actually are, in bytes, with no framework | ⬜ |
+| 0 | Raw HTTP server | What a request and response actually are, in bytes, with no framework | 🟨 |
 | 1 | CRUD API (in-memory) | Routing, HTTP methods, status codes, hand-written validation, then Pydantic | ⬜ |
 | 2 | Persistence | Connections, raw SQL (SQLite → Postgres), migrations, then an ORM | ⬜ |
 | 3 | Auth | Password hashing, sessions vs JWT, token expiry | ⬜ |
