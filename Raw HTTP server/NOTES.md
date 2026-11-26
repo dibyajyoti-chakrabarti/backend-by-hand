@@ -42,3 +42,16 @@ print(request)
 conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK\r\n')
 conn.close()
 ```
+
+But even after the script has run successfully and exited, a second immediate run gives the following error:
+
+```
+python3 server.py
+Traceback (most recent call last):
+  File "/mnt/d/projects/backend-by-hand/Raw HTTP server/server.py", line 14, in <module>
+    s.bind(('0.0.0.0', 8080))
+    ~~~~~~^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 98] Address already in use
+```
+
+When your server closes the connection `conn.close()` before the client, the linux kernel puts the connection on `TIME_WAIT.bind()` (about 60 seconds) to catch any stray/ delayed packets in the network and to send the final ACK packet.
