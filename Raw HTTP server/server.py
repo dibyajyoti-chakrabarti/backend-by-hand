@@ -19,4 +19,15 @@ s.listen()
 
 # If we end the program here, the kernel listens for only a fraction of a second, so we make the script to wait (sleep) for a while so that we can verify whether the kernel is actually listening on 8080
 # We can check this using 'ss -tlnp | grep 8080'
-time.sleep(10)
+#time.sleep(10)
+
+#Let's try to receive the requst from the client instead.
+# conn is a different socket object that is different from s; it is purely for this particular client use-case
+# addr stores the IP and ephimeral source port
+# Read the client request using conn.recv(bytes)
+# Finally, send a syntax-strict response to the client and then close the connection.
+conn, addr = s.accept()
+request=conn.recv(1024)
+print(request)
+conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK\r\n')
+conn.close()
