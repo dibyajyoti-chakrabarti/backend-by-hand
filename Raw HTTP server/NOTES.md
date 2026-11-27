@@ -54,4 +54,12 @@ Traceback (most recent call last):
 OSError: [Errno 98] Address already in use
 ```
 
-When your server closes the connection `conn.close()` before the client, the linux kernel puts the connection on `TIME_WAIT.bind()` (about 60 seconds) to catch any stray/ delayed packets in the network and to send the final ACK packet.
+When your server closes the connection `conn.close()` before the client, the linux kernel puts the connection on `TIME_WAIT` state (about 60 seconds) to catch any stray/ delayed packets in the network and to send the final ACK packet.
+
+You might be wondering what's the point of a header in a HTTP response in the following line:
+```
+conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nOK\r\n')
+```
+Remember that the response is basically raw bytes of data being sent via a TCP stream. How would the client know how to interpret or parse this data? Where to start reading from? That's where the header comes in! The headers tell the client how to read the data. For example, the `Content-Length: 4` tells the client to read exactly `4 bytes` of data from the TCP stream after the `\r\n\r\n` (which is the body of the HTTP response).
+
+But what if the server sends a body that is actually `6 bytes` and the Content-Length is 4? The client trusts the header and reads strictly 4 bytes. The rest of the 2 bytes sits in the Linux kernel's `TCP receive buffer`.

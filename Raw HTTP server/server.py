@@ -30,8 +30,13 @@ conn, addr = s.accept()
 request=conn.recv(1024)
 print(request)
 
-# Finally, send a syntax-strict response to the client and then close the connection.
-conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK\r\n')
+# Finally, send a syntax-strict HTTP response to the client and then close the connection.
+# "200 OK" belongs to status line and is not part of the body.
+# Content-Length is part of the header.
+# An extra \r\n tells the client that the header has ended.
+# Anything after the \r\n\r\n is the body of the HTTP response and the number of bytes there reflects the Content-Length. Things like '\r' or '\n' and simple English Letters are 1 byte each. Even a space character (' ') is 1 byte.
+# Read up line 59-65 on NOTES.md for understanding the point of headers in a HTTP response.
+conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nOK\r\n')
 conn.close()
 
-# Read up on TIME_WAIT.bind() in NOTES.md and how it works after the socket is closed by the Linux kernel.
+# Read up on TIME_WAIT in NOTES.md and how it works after the socket is closed by the Linux kernel.
