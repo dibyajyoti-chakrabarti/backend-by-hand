@@ -5,7 +5,7 @@ import time
 # Note that the documentation mentioned above is quite detailed and as such, I'll be using Gemini as an external assistant to skim past the content
 # We're trying to open a socket here: a socket is a program's phone line to the network
 # AF_INET is Address Family- AF_INET is for IPv4 while AF_INET6 is for IPv6
-# The second arhument is for picking the type of socket- SOCK_STREAM would be for TCP (because TCP is streams of data and packets are preserved in order) while UDP is SOCK_DGRAM (packets are using a datagram and not in order).
+# The second argument is for picking the type of socket- SOCK_STREAM would be for TCP (because TCP is streams of data and packets are preserved in order) while UDP is SOCK_DGRAM (packets are using a datagram and not in order).
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Now bind the socket to a port
@@ -21,13 +21,17 @@ s.listen()
 # We can check this using 'ss -tlnp | grep 8080'
 #time.sleep(10)
 
-#Let's try to receive the requst from the client instead.
+# Let's try to receive the requst from the client instead. This will help us mimmic a TCP handshake b/w a client and a server. Our server.py is the server.
 # conn is a different socket object that is different from s; it is purely for this particular client use-case
 # addr stores the IP and ephimeral source port
-# Read the client request using conn.recv(bytes)
-# Finally, send a syntax-strict response to the client and then close the connection.
 conn, addr = s.accept()
+
+# Read the client request using conn.recv(bytes) and receive <bytes> bytes of data from the request TCP stream.
 request=conn.recv(1024)
 print(request)
+
+# Finally, send a syntax-strict response to the client and then close the connection.
 conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK\r\n')
 conn.close()
+
+# Read up on TIME_WAIT.bind() in NOTES.md and how it works after the socket is closed by the Linux kernel.
