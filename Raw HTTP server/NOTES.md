@@ -56,6 +56,15 @@ OSError: [Errno 98] Address already in use
 
 When your server closes the connection `conn.close()` before the client, the server `server.py` sends a FIN to the client `curl` to which the client send an ACK packet back acknowledging the FIN from the server and then it's own FIN to stop sending packets from client side. The server sends a final ACK packet back to the client on receiving this and enteres a `TIME_WAIT` state. Thus, the server waits in case the final ACK is lost and the client has to resend its FIN packet. The other reason for this state is to wait for stray packets that are yet to be received.
 
+So what do we do to fix it? The idea is to flip a socket option flag. using the `setsockopt` method, we can flip the flag of `SO_REUSEADDR` to 1 in the `SOL_SOCKET` socket level. This only lets the `bind()` succeed while the connection is still waiting. Remember to do this before the socket object is bound to a port using `bind()`.
+
+Try an exercise:
+1. Start the server and curl it in another terminal.
+2. Start the server again.
+3. Instead of curling this time, run `ss -tan | grep 8080`
+
+You'll see 2 sockets (connections)- the old socket is on `TIME-WAIT` state. Thus, `SO_REUSEADDR` doesn't remove `TIME_WAIT`.
+
 You might be wondering what's the point of a header in a HTTP response in the following line:
 ```
 conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nOK\r\n')

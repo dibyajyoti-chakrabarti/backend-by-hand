@@ -8,6 +8,12 @@ import time
 # The second argument is for picking the type of socket- SOCK_STREAM would be for TCP (because TCP is streams of data and packets arrive in order. Nothing marks where a TCP send ends.) while UDP is SOCK_DGRAM (packets are using a datagram and not in order and each datagram is received as a whole).
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+# We want to reuse the server address immediately after the socket is closed by the server when we do conn.close().
+# We flip a socket option to 1.
+# The 1st argument (Socket Layer - Socket) tells us which Socket level's socket options we'll be using.
+# The 2nd argument is the option whose flag we will flip- in this case being the reuse-address flag- and we're setting it to 1 in the 3rd argument
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
 # Now bind the socket to a port
 # 0.0.0.0 is a wildcard for "Accept all incoming traffic"; you could also use 127.0.0.1 for your own machine
 # <socket>.bind() takes one argument so pass the IP and the port in one tuple
@@ -40,4 +46,4 @@ print(request)
 conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nOK\r\n')
 conn.close()
 
-# Read up on TIME_WAIT in NOTES.md and how it works after the socket is closed by the Linux kernel.
+# Read up on TIME_WAIT in NOTES.md and how it works after the socket is closed by the Linux kernel. This issue is handled by the SO_REUSEADDR socket option flag (set it to 1).
