@@ -42,7 +42,7 @@ print(request)
 # Content-Length is part of the header.
 # An extra \r\n tells the client that the header has ended.
 # Anything after the \r\n\r\n is the body of the HTTP response and the number of bytes there reflects the Content-Length. Things like '\r' or '\n' and simple English Letters are 1 byte each. Even a space character (' ') is 1 byte.
-# Read up line 59-65 on NOTES.md for understanding the point of headers in a HTTP response.
+# Read up NOTES.md for understanding the point of headers in a HTTP response. The b'..' is for 'bytes'.
 conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nOK\r\n')
 conn.close()
 

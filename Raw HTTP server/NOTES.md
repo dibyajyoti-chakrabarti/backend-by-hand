@@ -79,3 +79,46 @@ Client --- request bytes ---> Server (direction 1)
 Client <--- response bytes --- Server (direction 2)
 ```
 The 2 extra bytes are currently in the client's receive buffer. The next time the Client sends a request to the Server, there's no real issue, but when the server sends back a response- what happens? The client is expecting `HTTP/1.1` but instead reads the stale 2 bytes from the front of the `TCP receive buffer`. Thus, resulting into a parse error.
+
+A server reponds to a client request according to what the client has asked for. It should not always respond with `OK`.
+
+Let's first look at what a typical `/hello` HTTP request could look like. For this, we'll simply run the server in one terminal using `python3 server.py` and on another terminal, run `curl -v http://localhost:8080/hello` and look at the raw request bytes returned in the 1st terminal. It will look something like:
+```
+b'GET /hello HTTP/1.1\r\nHost: localhost:8080\r\nUser-Agent: curl/8.18.0\r\nAccept: */*\r\n\r\n'
+```
+
+The `Request Line` end at the first `\r\n`. Stuff after this boundary starts the header part of the request. Also, as already answered before, the `\r\n\r\n` is where the header of the request ends. Any bytes after this point is the request body (content).
+
+The first `' '` separates the `Method` and the `Path` while the second `' '` separates the `Path` and the `HTTP version`.
+
+Now let's try to parse and interpret a HTTP request. A typical parsing strategy could look something like this:
+
+```
+# Divide the request into head and body
+head, sep, body = request.partition(b'\r\n\r\n')
+print(sep)
+
+# Divide the head into different lines
+lines = head.split(b'\r\n')
+
+# Get the method, path and version
+request_line = lines[0].split(b' ')
+```
+If the `sep` is read empty by a server, it means that the client hasn't finished sending the header of the request. TCP is a stream of data some one particular `recv()` could possible just return a portion of the request.
+
+But we want the entire request. Our server can't start processing with only a portion of the request. What do we do? The idea is to keep using `recv()` until we have the entire request. But when do we stop? 2 boundary conditions.
+
+1. Boundary 1 ends at the first occurance of `\r\n\r\n`. This is where the header part of the request ends.
+2. Now, how much more do we read from here? Read the `Content-Length` header from the head of the request and obey that. If the request doesn't have a `Content-Length` header- it just means that that request doesn't have a body and thus, Boundary 1 will suffice.
+
+If `conn.recv()` return `b''`- it means that the client has closed it's side of the socket and has sent the FIN packet. The server needs to immediately do the following to avoid an infinite loop or burning CPU usage:
+
+1. `break` from the `recv()` loop.
+2. Close the server side of the socket.
+3. Discard any incomplete/ partial requests being parsed.
+
+What if a client keeps sending the header w/o ever sending the `\r\n\r\n` part? This is a real `DoS` (Denial of Service) attack where a bad actor could sends GBs of header bytes but never try to stop. Modern servers have a strict `Maximum header size block` to mitigate this issue. If the limit is reached but the request was still not completely received, the connection (socket) with the client is immediately terminated.
+
+In case that the request's body exceeds the server's allocated maximum header length, we return a `431 Request Header Field Too Large`.
+
+In case that the final received request is not matching our strict syntax standards, we return a `400 Bad Request` code- stating that the request was malformed.
