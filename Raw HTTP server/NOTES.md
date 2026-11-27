@@ -119,6 +119,20 @@ If `conn.recv()` return `b''`- it means that the client has closed it's side of 
 
 What if a client keeps sending the header w/o ever sending the `\r\n\r\n` part? This is a real `DoS` (Denial of Service) attack where a bad actor could sends GBs of header bytes but never try to stop. Modern servers have a strict `Maximum header size block` to mitigate this issue. If the limit is reached but the request was still not completely received, the connection (socket) with the client is immediately terminated.
 
-In case that the request's body exceeds the server's allocated maximum header length, we return a `431 Request Header Field Too Large`.
+In case that the request's header exceeds the server's allocated maximum header length, we return a `431 Request Header Fields Too Large`.
 
 In case that the final received request is not matching our strict syntax standards, we return a `400 Bad Request` code- stating that the request was malformed.
+
+Once we have parsed the request and extracted the `path` out of the Request Line, we want to send an appropriate response accoding to the path. This is called routing. 
+
+Depending on the path being asked in the Request Line, we decide on what will be inside the `status_line` and `body` of the response. The routing by itself is just a simple if-else and can be seen implemented in `server.py`.
+
+```
+if path==b'/hello':
+    status_line = '200 OK'
+    body = 'Body of the response\r\n'
+else:
+    status_line = '404 Not Found'
+    body = 'This content cannot be found\r\n'
+response = f'HTTP/1.1 {status_line}\r\nContent-Length: {len(body)}\r\n\r\n{body}'
+```
