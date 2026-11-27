@@ -5,7 +5,7 @@ import time
 # Note that the documentation mentioned above is quite detailed and as such, I'll be using Gemini as an external assistant to skim past the content
 # We're trying to open a socket here: a socket is a program's phone line to the network
 # AF_INET is Address Family- AF_INET is for IPv4 while AF_INET6 is for IPv6
-# The second argument is for picking the type of socket- SOCK_STREAM would be for TCP (because TCP is streams of data and packets are preserved in order) while UDP is SOCK_DGRAM (packets are using a datagram and not in order).
+# The second argument is for picking the type of socket- SOCK_STREAM would be for TCP (because TCP is streams of data and packets arrive in order. Nothing marks where a TCP send ends.) while UDP is SOCK_DGRAM (packets are using a datagram and not in order and each datagram is received as a whole).
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Now bind the socket to a port
@@ -21,12 +21,13 @@ s.listen()
 # We can check this using 'ss -tlnp | grep 8080'
 #time.sleep(10)
 
-# Let's try to receive the requst from the client instead. This will help us mimmic a TCP handshake b/w a client and a server. Our server.py is the server.
+# The 3-way TCP handshake (SYN, SYN-ACK, ACK) is done in the background by the Linux kernel in the background.
+# We'll be using accept() purely for queue-popping and socket-creation b/w the curl (client) and server,py (server).
 # conn is a different socket object that is different from s; it is purely for this particular client use-case
 # addr stores the IP and ephimeral source port
 conn, addr = s.accept()
 
-# Read the client request using conn.recv(bytes) and receive <bytes> bytes of data from the request TCP stream.
+# Read the client request using conn.recv(bytes) and receive upto (not exactly) <bytes> bytes of data from the request TCP stream.
 request=conn.recv(1024)
 print(request)
 
