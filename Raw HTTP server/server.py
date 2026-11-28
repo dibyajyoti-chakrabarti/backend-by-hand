@@ -1,4 +1,5 @@
 import socket
+# Unused, used only to show how to keep a socket alive
 import time
 
 # Documentation to refer to: https://docs.python.org/3/library/socket.html#socket-families
@@ -27,7 +28,7 @@ s.listen()
 # We can check this using 'ss -tlnp | grep 8080'
 #time.sleep(10)
 
-# The 3-way TCP handshake (SYN, SYN-ACK, ACK) is done in the background by the Linux kernel in the background.
+# The 3-way TCP handshake (SYN, SYN-ACK, ACK) is done by the Linux kernel in the background.
 # We'll be using accept() purely for queue-popping and socket-creation b/w the curl (client) and server,py (server).
 # conn is a different socket object that is different from s; it is purely for this particular client use-case
 # addr stores the IP and ephimeral source port
@@ -42,22 +43,33 @@ head, sep, body = request.partition(b'\r\n\r\n')
 lines=head.split(b'\r\n')
 request_line=lines[0].split(b' ')
 
-# For now, a malformed request is any request that doesn't agree with out parsing logic. Actual parsers are way more complicated.
+# For now, a malformed request is any request that doesn't agree with our parsing logic. Actual parsers are way more complicated.
 # We will use 'printf 'GARBAGE\r\n\r\n' | nc localhost 8080' for testing.
 # Please note that the entire 'HTTP/1.1 200 OK' is the status line.
+# When routing requests, resource existence always takes precedence over method validation. So first check if the path exists, and then the supported methods.
+
+allow_header = ''
 if len(request_line)!=3:
     status_line = 'HTTP/1.1 400 Bad Request'
     response_body = 'Malformed Request\r\n'
 else:
     method, path, ver = request_line[0], request_line[1], request_line[2]
     if path==b'/hello':
-        status_line = 'HTTP/1.1 200 OK'
-        response_body = 'Body of the response\r\n'
+        # Remember to use b'<method>' or we won't be able to match the method in the check below.
+        allowed_methods = [b'GET']
+        if method in allowed_methods:
+            status_line = 'HTTP/1.1 200 OK'
+            response_body = 'Body of the response\r\n'
+        else:
+            status_line = 'HTTP/1.1 405 Method Not Allowed'
+            # Create the allow_header dynamically according to the allowed_methods list
+            allow_header = f'Allow: {', '.join(m.decode('ascii') for m in allowed_methods)}\r\n'
+            response_body = 'This method is not allowed on /hello path\r\n'
     else:
         status_line = 'HTTP/1.1 404 Not Found'
         response_body = 'This content cannot be found\r\n'
 
-response = f'{status_line}\r\nContent-Length: {len(response_body.encode('utf-8'))}\r\n\r\n{response_body}'
+response = f'{status_line}\r\nContent-Length: {len(response_body.encode('utf-8'))}\r\n{allow_header}\r\n{response_body}'
 # Finally, send a syntax-strict HTTP response to the client and then close the connection.
 # "200 OK" belongs to status line and is not part of the body.
 # Content-Length is part of the header.

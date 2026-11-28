@@ -127,20 +127,44 @@ Depending on the path being asked in the Request Line, we decide on what will be
 
 But what about malformed requests? Requests that are not valid or make no sense? Modern HTTP parsers are quite complicated and have multiple logical checks. For our use-case, we'll just have one single gate to check whether our `Request Line` has the exact 3 parts- the `method`, the `path` and finally, the `HTTP version`. If this gate is violated, we'll return a `400 Bad Request` hinting a malformed request.
 
+What if the request is using a method unsupported by the mentioned path? Return `405 Method Not Allowed` and pass a `Allow: GET` header in the response to let the client know what method to use the next time.
+
+Then suppose a scenario where:
+
+1. The path doesn't exist.
+2. The method natually isn't supported for the non-existing path.
+
+Will you return `404 Not Found` or `405 Method Not Allowed`? When it comes to request routing, first check whether the resouce exists and then, what method is allowed over the resource requested. In this case, we return a `404 Not Found`.
+
 ```
+allow_header = ''
 if len(request_line)!=3:
-    status_line = '400 Bad Request'
+    status_line = 'HTTP/1.1 400 Bad Request'
     response_body = 'Malformed Request\r\n'
 else:
     method, path, ver = request_line[0], request_line[1], request_line[2]
     if path==b'/hello':
-        status_line = '200 OK'
-        response_body = 'Body of the response\r\n'
+        allowed_methods = [b'GET']
+        if method in allowed_methods:
+            status_line = 'HTTP/1.1 200 OK'
+            response_body = 'Body of the response\r\n'
+        else:
+            status_line = 'HTTP/1.1 405 Method Not Allowed'
+            allow_header = 'Allow: GET\r\n'
+            response_body = 'This method is not allowed on /hello path'
     else:
-        status_line = '404 Not Found'
+        status_line = 'HTTP/1.1 404 Not Found'
         response_body = 'This content cannot be found\r\n'
+
+response = f'{status_line}\r\nContent-Length: {len(response_body.encode('utf-8'))}\r\n{allow_header}\r\n{response_body}'
 ```
 You cannot test the `400 Bad Request` using a typical curl command because it will send a good request by default. You'll need to use netcat to send malformed requests forecully into the TCP stream.
 ```
 printf "GARBAGE\r\n\r\n" | nc localhost 8080
+```
+Again, to test a `DELETE` request on the server, we'll use the following commands using netcat.
+```
+printf 'DELETE /hello HTTP/1.1\r\n\r\n' | nc localhost 8080
+printf 'GET /hello HTTP/1.1\r\n\r\n' | nc localhost 8080
+printf 'DELETE /nope HTTP/1.1\r\n\r\n' | nc localhost 8080
 ```
