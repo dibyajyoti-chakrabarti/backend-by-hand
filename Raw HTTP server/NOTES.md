@@ -1,4 +1,4 @@
-After reaching line 22 in `server.py`, where we do `time.sleep(10)`, we also tried to curl the socket and got the following output:
+There exists a line in `server.py`, where we do `time.sleep(10)`, we also tried to curl the socket and got the following output:
 
 The command that we ran:
 `curl -v http://localhost:8080/ `
@@ -39,7 +39,7 @@ To fix this issue, we're going to explicitly `accept()` requests from a clint, `
 conn, addr = s.accept()
 request=conn.recv(1024)
 print(request)
-conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK\r\n')
+conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nOK\r\n')
 conn.close()
 ```
 
@@ -109,7 +109,7 @@ If the `sep` is read empty by a server, it means that the client hasn't finished
 But we want the entire request. Our server can't start processing with only a portion of the request. What do we do? The idea is to keep using `recv()` until we have the entire request. But when do we stop? 2 boundary conditions.
 
 1. Boundary 1 ends at the first occurance of `\r\n\r\n`. This is where the header part of the request ends.
-2. Now, how much more do we read from here? Read the `Content-Length` header from the head of the request and obey that. If the request doesn't have a `Content-Length` header- it just means that that request doesn't have a body and thus, Boundary 1 will suffice.
+2. Now, how much more do we read from here? Read the `Content-Length` header from the head of the request and obey that. If the request doesn't have a `Content-Length` (or a `Transfer-Encoding` header when we cannot say the exact length beforehand) header- it just means that that request doesn't have a body and thus, Boundary 1 will suffice.
 
 If `conn.recv()` return `b''`- it means that the client has closed it's side of the socket and has sent the FIN packet. The server needs to immediately do the following to avoid an infinite loop or burning CPU usage:
 
@@ -117,22 +117,30 @@ If `conn.recv()` return `b''`- it means that the client has closed it's side of 
 2. Close the server side of the socket.
 3. Discard any incomplete/ partial requests being parsed.
 
-What if a client keeps sending the header w/o ever sending the `\r\n\r\n` part? This is a real `DoS` (Denial of Service) attack where a bad actor could sends GBs of header bytes but never try to stop. Modern servers have a strict `Maximum header size block` to mitigate this issue. If the limit is reached but the request was still not completely received, the connection (socket) with the client is immediately terminated.
+What if a client keeps sending the header w/o ever sending the `\r\n\r\n` part? This is a real `DoS` (Denial of Service) attack where a bad actor could sends GBs of header bytes but never try to stop. Modern servers have a strict `Maximum header size block` to mitigate this issue.
 
-In case that the request's header exceeds the server's allocated maximum header length, we return a `431 Request Header Fields Too Large`.
-
-In case that the final received request is not matching our strict syntax standards, we return a `400 Bad Request` code- stating that the request was malformed.
+In case that the request's header exceeds the server's allocated maximum header length, we return a `431 Request Header Fields Too Large`. Once this response is sent, the connection (socket) with the client is immediately terminated.
 
 Once we have parsed the request and extracted the `path` out of the Request Line, we want to send an appropriate response accoding to the path. This is called routing. 
 
 Depending on the path being asked in the Request Line, we decide on what will be inside the `status_line` and `body` of the response. The routing by itself is just a simple if-else and can be seen implemented in `server.py`.
 
+But what about malformed requests? Requests that are not valid or make no sense? Modern HTTP parsers are quite complicated and have multiple logical checks. For our use-case, we'll just have one single gate to check whether our `Request Line` has the exact 3 parts- the `method`, the `path` and finally, the `HTTP version`. If this gate is violated, we'll return a `400 Bad Request` hinting a malformed request.
+
 ```
-if path==b'/hello':
-    status_line = '200 OK'
-    body = 'Body of the response\r\n'
+if len(request_line)!=3:
+    status_line = '400 Bad Request'
+    response_body = 'Malformed Request\r\n'
 else:
-    status_line = '404 Not Found'
-    body = 'This content cannot be found\r\n'
-response = f'HTTP/1.1 {status_line}\r\nContent-Length: {len(body)}\r\n\r\n{body}'
+    method, path, ver = request_line[0], request_line[1], request_line[2]
+    if path==b'/hello':
+        status_line = '200 OK'
+        response_body = 'Body of the response\r\n'
+    else:
+        status_line = '404 Not Found'
+        response_body = 'This content cannot be found\r\n'
+```
+You cannot test the `400 Bad Request` using a typical curl command because it will send a good request by default. You'll need to use netcat to send malformed requests forecully into the TCP stream.
+```
+printf "GARBAGE\r\n\r\n" | nc localhost 8080
 ```

@@ -41,24 +41,33 @@ request=conn.recv(1024)
 head, sep, body = request.partition(b'\r\n\r\n')
 lines=head.split(b'\r\n')
 request_line=lines[0].split(b' ')
-method, path, ver = request_line[0], request_line[1], request_line[2]
 
-if path==b'/hello':
-    status_line = '200 OK'
-    response_body = 'Body of the response\r\n'
+# For now, a malformed request is any request that doesn't agree with out parsing logic. Actual parsers are way more complicated.
+# We will use 'printf 'GARBAGE\r\n\r\n' | nc localhost 8080' for testing.
+# Please note that the entire 'HTTP/1.1 200 OK' is the status line.
+if len(request_line)!=3:
+    status_line = 'HTTP/1.1 400 Bad Request'
+    response_body = 'Malformed Request\r\n'
 else:
-    status_line = '404 Not Found'
-    response_body = 'This content cannot be found\r\n'
-response = f'HTTP/1.1 {status_line}\r\nContent-Length: {len(response_body.encode('utf-8'))}\r\n\r\n{response_body}'
+    method, path, ver = request_line[0], request_line[1], request_line[2]
+    if path==b'/hello':
+        status_line = 'HTTP/1.1 200 OK'
+        response_body = 'Body of the response\r\n'
+    else:
+        status_line = 'HTTP/1.1 404 Not Found'
+        response_body = 'This content cannot be found\r\n'
+
+response = f'{status_line}\r\nContent-Length: {len(response_body.encode('utf-8'))}\r\n\r\n{response_body}'
 # Finally, send a syntax-strict HTTP response to the client and then close the connection.
 # "200 OK" belongs to status line and is not part of the body.
 # Content-Length is part of the header.
 # An extra \r\n tells the client that the header has ended.
-# Anything after the \r\n\r\n is the body of the HTTP response and the number of bytes there reflects the Content-Length. Things like '\r' or '\n' and simple English Letters are 1 byte each. Even a space character (' ') is 1 byte. If you're unsure about the length of the body, just use len(body) and make Python do the magic.
+# Anything after the \r\n\r\n is the body of the HTTP response and the number of bytes there reflects the Content-Length. Things like '\r' or '\n' and simple English Letters are 1 byte each. Even a space character (' ') is 1 byte. If you're unsure about the length of the body, just use len(response_body.encode('utf-8)) and make Python do the magic.
+# Content-Length is measured over the bytes version of the response body, not the str version.
 # Read up NOTES.md for understanding the point of headers in a HTTP response. The b'..' is for 'bytes'.
 # We're using utf-8 (Unicode transformation format) to convert the str into bytes for TCP stream
 conn.sendall(response.encode('utf-8'))
 conn.close()
 print("Connection closed from Server side.")
 
-# Read up on TIME_WAIT in NOTES.md and how it works after the socket is closed by the Linux kernel. This issue is handled by the SO_REUSEADDR socket option flag (set it to 1).
+# Read up on TIME_WAIT in NOTES.md and how it works after the socket is closed by the Linux kernel. SO_REUSEADDR socket option flag helps us immediately use the address while we wait for TIME_WAIT to finish. Read this up in NOTES.md.
